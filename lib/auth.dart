@@ -1,60 +1,118 @@
+import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'widget/user_image_picker.dart'; // Ensure this path is correct
 
-final _firebase = FirebaseAuth.instance;
+final FirebaseAuth _firebase = FirebaseAuth.instance;
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({Key? key}) : super(key: key);
 
   @override
-  State<StatefulWidget> createState() {
-    return _AuthScreenState();
-  }
+  State<AuthScreen> createState() => _AuthScreenState();
 }
 
 class _AuthScreenState extends State<AuthScreen> {
-  final _form = GlobalKey<FormState>();
+  final GlobalKey<FormState> _form = GlobalKey<FormState>();
   var _enteredEmail = '';
   var _enteredPassword = '';
+  var _enteredName = ''; // New field for name
+  var _enteredUsername = ''; // New field for username
   var _isLogin = true;
+  File? _selectedImage;
+
   void _submit() async {
     final isValid = _form.currentState!.validate();
+    FocusScope.of(context).unfocus(); // Close the keyboard
 
-    if (!isValid) {
-      return;
-    }
+    // if (!isValid || (!_isLogin && _selectedImage == null)) {
+    //   if (!_isLogin && _selectedImage == null) {
+    //     ScaffoldMessenger.of(context).showSnackBar(
+    //       SnackBar(content: Text('Please pick an image.')),
+    //     );
+    //   }
+    //   return;
+    // }
 
     _form.currentState!.save();
+    print(_form.currentState!.validate());
 
     try {
+      UserCredential userCredential;
       if (_isLogin) {
-        final UserCredential = await _firebase.signInWithEmailAndPassword(
-            email: _enteredEmail, password: _enteredPassword);
-        print(UserCredential);
+        userCredential = await _firebase.signInWithEmailAndPassword(
+          email: _enteredEmail,
+          password: _enteredPassword,
+        );
+        // Handle successful login, e.g., navigate to another screen
       } else {
-        final UserCredential = await _firebase.createUserWithEmailAndPassword(
-            email: _enteredEmail, password: _enteredPassword);
-        print(UserCredential);
+        print('creating user');
+        print(_enteredEmail);
+        print(_enteredPassword);
+        userCredential = await _firebase.createUserWithEmailAndPassword(
+          email: _enteredEmail,
+          password: _enteredPassword,
+        );
+
+        // Upload image to Firebase Storage
+        // final storageRef = FirebaseStorage.instance
+        //     .ref()
+        //     .child('user_images')
+        //     .child('${userCredential.user!.uid}.jpg');
+        // await storageRef.putFile(_selectedImage!);
+        // final imageUrl = await storageRef.getDownloadURL();
+
+        // Store username and image URL in Firestore
+
+        try {
+          print('uploading to firestore');
+          print(userCredential.user!.uid);
+          print(_enteredUsername);
+          print(_enteredEmail);
+          print(_enteredName);
+          await FirebaseFirestore.instance
+              .collection('userstorage')
+              .doc(userCredential.user!.uid)
+              .set({
+            'username': _enteredUsername,
+            'email': _enteredEmail,
+            'name': _enteredName,
+            // 'image_url': imageUrl,
+          });
+          print('uploaded to firestore');
+        } catch (error) {
+          print('Error: $error');
+        }
+
+        // Store additional user information (e.g., name, username) in Firebase
+        // This can be in FirebaseAuth profile or in a Firestore document
+
+        // Clear form data and reset state
+        _form.currentState!.reset();
+        setState(() {
+          _enteredEmail = '';
+          _enteredPassword = '';
+          // _selectedImage = null;
+          _isLogin = true; // Switch back to login mode after sign up
+        });
       }
     } on FirebaseAuthException catch (error) {
-      if (error.code == 'email-already-in-use') {
-        //   print('The account already exists for that email.');
-        // } else if (error.code == 'weak-password') {
-        //   print('The password provided is too weak.');
-      }
       ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.message ?? 'Authentication failed.  ')));
+        SnackBar(content: Text(error.message ?? 'Authentication failed.')),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        backgroundColor: Color(0xFFFFF7F1),
-        body: Center(
-          child: SingleChildScrollView(
-              child: Column(
+      backgroundColor: Color(0xFFFFF7F1),
+      body: Center(
+        child: SingleChildScrollView(
+          child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
@@ -65,7 +123,8 @@ class _AuthScreenState extends State<AuthScreen> {
                   right: 20,
                 ),
                 width: 200,
-                child: Image.asset('assets/logo.png'),
+                child: Image.asset(
+                    'assets/logo.png'), // Ensure you have this image in your assets
               ),
               Card(
                 margin: const EdgeInsets.all(20),
@@ -74,14 +133,46 @@ class _AuthScreenState extends State<AuthScreen> {
                   child: Form(
                     key: _form,
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
+                        // if (!_isLogin)
+                        //   UserImagePicker(
+                        //     onPickImage: (pickedImage) {
+                        //       _selectedImage = pickedImage;
+                        //     },
+                        //   ),
+                        if (!_isLogin)
+                          TextFormField(
+                            decoration: InputDecoration(labelText: 'Name'),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter a name.';
+                              }
+                              return null;
+                            },
+                            onSaved: (value) {
+                              _enteredName = value!;
+                            },
+                          ),
+                        if (!_isLogin)
+                          TextFormField(
+                            decoration: InputDecoration(labelText: 'Username'),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter a username.';
+                              }
+                              return null;
+                            },
+                            onSaved: (value) {
+                              _enteredUsername = value!;
+                            },
+                          ),
                         TextFormField(
+                          key: const ValueKey('email'),
                           decoration: const InputDecoration(labelText: 'Email'),
                           keyboardType: TextInputType.emailAddress,
-                          autocorrect: false,
-                          textCapitalization: TextCapitalization.none,
                           validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
+                            if (value == null || !value.contains('@')) {
                               return 'Please enter a valid email address.';
                             }
                             return null;
@@ -91,14 +182,13 @@ class _AuthScreenState extends State<AuthScreen> {
                           },
                         ),
                         TextFormField(
+                          key: const ValueKey('password'),
                           decoration:
                               const InputDecoration(labelText: 'Password'),
                           obscureText: true,
-                          autocorrect: false,
-                          textCapitalization: TextCapitalization.none,
                           validator: (value) {
-                            if (value == null || value.trim().length < 6) {
-                              return 'Password must be at least 6 characters lomg.';
+                            if (value == null || value.length < 7) {
+                              return 'Password must be at least 7 characters long.';
                             }
                             return null;
                           },
@@ -109,7 +199,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         const SizedBox(height: 12),
                         ElevatedButton(
                           onPressed: _submit,
-                          child: Text(_isLogin ? 'Sign In' : 'Sign up'),
+                          child: Text(_isLogin ? 'Sign In' : 'Sign Up'),
                         ),
                         TextButton(
                           onPressed: () {
@@ -117,9 +207,11 @@ class _AuthScreenState extends State<AuthScreen> {
                               _isLogin = !_isLogin;
                             });
                           },
-                          child: Text(_isLogin
-                              ? 'Already have an account? Sign in'
-                              : 'Don\'t have an account? Sign up'),
+                          child: Text(
+                            _isLogin
+                                ? 'Don\'t have an account? Sign Up'
+                                : 'Already have an account? Sign In',
+                          ),
                         ),
                       ],
                     ),
@@ -127,7 +219,9 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
               ),
             ],
-          )),
-        ));
+          ),
+        ),
+      ),
+    );
   }
 }
