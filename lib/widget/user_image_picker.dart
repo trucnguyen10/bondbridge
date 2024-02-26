@@ -1,71 +1,57 @@
-import 'package:flutter/material.dart';
+import 'dart:typed_data';
 import 'dart:io';
-import 'package:image_picker/image_picker.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:html' as html;
 
 class UserImagePicker extends StatefulWidget {
-  const UserImagePicker({
-    super.key,
-    required this.onPickImage,
-  });
+  final void Function(dynamic pickedImage) onPickImage;
 
-  final void Function(File pickedImage) onPickImage;
+  const UserImagePicker({Key? key, required this.onPickImage})
+      : super(key: key);
 
   @override
   _UserImagePickerState createState() => _UserImagePickerState();
 }
 
 class _UserImagePickerState extends State<UserImagePicker> {
-  File? _pickedImageFile;
+  Uint8List? _webImage;
+  File? _mobileImage;
 
-  // Function to handle image picking
   void _pickImage() async {
-    print("Image Picker Triggered"); // Debugging print
-    final pickedImageFile = await ImagePicker().pickImage(
-      source: ImageSource.camera,
-      imageQuality: 50,
-      maxWidth: 150,
-    );
-    if (pickedImageFile == null) {
-      print("No image selected"); // Debugging print
-      return;
+    if (kIsWeb) {
+      // Web-specific logic
+      html.FileUploadInputElement uploadInput = html.FileUploadInputElement()
+        ..accept = 'image/*';
+      uploadInput.accept = 'image/*';
+      uploadInput.click();
+      uploadInput.onChange.listen((e) {
+        final file = uploadInput.files!.first;
+        final reader = html.FileReader();
+        reader.readAsArrayBuffer(file);
+        reader.onLoadEnd.listen((e) {
+          setState(() {
+            _webImage = reader.result as Uint8List;
+          });
+          widget.onPickImage(_webImage);
+        });
+      });
+    } else {
+      // Mobile-specific logic
+      // Implement mobile image picking logic using image_picker or similar
     }
-
-    if (pickedImageFile != null) {
-      print("Image selected"); // Debugging print
-      print("file path: " + pickedImageFile.path); // Debugging print
-    }
-
-    setState(() {
-      _pickedImageFile = File(pickedImageFile.path);
-    });
-
-    widget.onPickImage(_pickedImageFile!);
-    print(_pickedImageFile); // Debugging print
   }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        CircleAvatar(
-          radius: 40, // Size of the avatar
-          backgroundColor: Colors.grey,
-          // If an image is picked, display it, otherwise show grey background
-          backgroundImage:
-              _pickedImageFile != null ? FileImage(_pickedImageFile!) : null,
+        if (_webImage != null || _mobileImage != null)
+          Image.memory(_webImage ?? _mobileImage!.readAsBytesSync()),
+        ElevatedButton(
+          onPressed: _pickImage,
+          child: Text('Pick Image'),
         ),
-        TextButton.icon(
-          onPressed: _pickImage, // Trigger image picking on press
-          icon: const Icon(Icons.image), // Icon for the button
-          label: Text(
-            'Add Image',
-            style: TextStyle(
-              color: Theme.of(context)
-                  .colorScheme
-                  .primary, // Use primary color from the theme
-            ),
-          ),
-        )
       ],
     );
   }

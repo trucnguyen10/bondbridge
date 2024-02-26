@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'widget/user_image_picker.dart'; // Ensure this path is correct
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 final FirebaseAuth _firebase = FirebaseAuth.instance;
 
@@ -22,19 +24,21 @@ class _AuthScreenState extends State<AuthScreen> {
   var _enteredUsername = ''; // New field for username
   var _isLogin = true;
   File? _selectedImage;
+  dynamic _pickedImage; // Can be File (mobile) or Uint8List (web)
 
   void _submit() async {
     final isValid = _form.currentState!.validate();
+
     FocusScope.of(context).unfocus(); // Close the keyboard
 
-    // if (!isValid || (!_isLogin && _selectedImage == null)) {
-    //   if (!_isLogin && _selectedImage == null) {
-    //     ScaffoldMessenger.of(context).showSnackBar(
-    //       SnackBar(content: Text('Please pick an image.')),
-    //     );
-    //   }
-    //   return;
-    // }
+    if (!isValid || (!_isLogin && _pickedImage == null)) {
+      if (!_isLogin && _pickedImage == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Please pick an image.')),
+        );
+      }
+      return;
+    }
 
     _form.currentState!.save();
     print(_form.currentState!.validate());
@@ -56,13 +60,22 @@ class _AuthScreenState extends State<AuthScreen> {
           password: _enteredPassword,
         );
 
-        // Upload image to Firebase Storage
-        // final storageRef = FirebaseStorage.instance
-        //     .ref()
-        //     .child('user_images')
-        //     .child('${userCredential.user!.uid}.jpg');
-        // await storageRef.putFile(_selectedImage!);
-        // final imageUrl = await storageRef.getDownloadURL();
+        String imageUrl = '';
+        if (_pickedImage != null) {
+          print('uploading image');
+          // Upload image to Firebase Storage
+          String filePath = 'user_images/${userCredential.user!.uid}.jpg';
+          Reference storageRef = FirebaseStorage.instance.ref().child(filePath);
+
+          if (kIsWeb) {
+            // Web-specific upload logic
+            await storageRef.putData(_pickedImage as Uint8List);
+          } else {
+            // Mobile-specific upload logic
+            await storageRef.putFile(_pickedImage as File);
+          }
+          imageUrl = await storageRef.getDownloadURL();
+        }
 
         // Store username and image URL in Firestore
 
@@ -79,7 +92,7 @@ class _AuthScreenState extends State<AuthScreen> {
             'username': _enteredUsername,
             'email': _enteredEmail,
             'name': _enteredName,
-            // 'image_url': imageUrl,
+            'image_url': imageUrl,
           });
           print('uploaded to firestore');
         } catch (error) {
@@ -94,7 +107,7 @@ class _AuthScreenState extends State<AuthScreen> {
         setState(() {
           _enteredEmail = '';
           _enteredPassword = '';
-          // _selectedImage = null;
+          _selectedImage = null;
           _isLogin = true; // Switch back to login mode after sign up
         });
       }
@@ -135,12 +148,12 @@ class _AuthScreenState extends State<AuthScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // if (!_isLogin)
-                        //   UserImagePicker(
-                        //     onPickImage: (pickedImage) {
-                        //       _selectedImage = pickedImage;
-                        //     },
-                        //   ),
+                        if (!_isLogin)
+                          UserImagePicker(
+                            onPickImage: (pickedImage) {
+                              _pickedImage = pickedImage;
+                            },
+                          ),
                         if (!_isLogin)
                           TextFormField(
                             decoration: InputDecoration(labelText: 'Name'),
