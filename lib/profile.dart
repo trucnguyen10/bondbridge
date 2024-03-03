@@ -8,6 +8,8 @@ import 'home.dart';
 import 'dart:typed_data';
 import 'dart:io';
 import 'update_profile.dart'; // Ensure this file exists with correct implementation
+import 'package:firebase_auth/firebase_auth.dart';
+import 'auth.dart';
 
 class ProfilePage extends StatefulWidget {
   final String userId;
@@ -45,6 +47,19 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  void _signOut() async {
+    try {
+      await FirebaseAuth.instance.signOut();
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+            builder: (context) => AuthScreen()), // Replace with your login page
+        (Route<dynamic> route) => false,
+      );
+    } catch (e) {
+      print('Sign Out Error: $e');
+    }
+  }
+
   Future<void> _updateProfilePicture(dynamic pickedImage) async {
     // Upload the new image and get the URL
     String filePath = 'user_images/${widget.userId}.jpg';
@@ -76,6 +91,10 @@ class _ProfilePageState extends State<ProfilePage> {
     return Scaffold(
       backgroundColor: Color(0xFFFFF7F1),
       appBar: AppBar(
+        leading: IconButton(
+          icon: Icon(Icons.logout, size: 24.0), // Sign-out icon
+          onPressed: _signOut,
+        ),
         title: Image.asset('assets/logo.png', height: 100),
         actions: [
           IconButton(
