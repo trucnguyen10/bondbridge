@@ -1,7 +1,7 @@
 class UserModel {
-  final String name;
-  final String username;
-  final String imageUrl;
+  String name;
+  String username;
+  String imageUrl;
 
   UserModel(
       {required this.name, required this.username, required this.imageUrl});
