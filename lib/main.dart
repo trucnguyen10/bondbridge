@@ -3,16 +3,36 @@ import 'package:flutter/material.dart';
 import 'auth.dart';
 import 'profile.dart';
 import 'home.dart';
+import 'package:timezone/data/latest.dart' as tz;
 import 'splash.dart';
-
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'widget/user_image_picker_mobile.dart'
+    if (dart.library.html) 'widget/user_image_picker_web.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  tz.initializeTimeZones();
+
+  print('Timezone initialized: ${(DateTime.now().timeZoneName)}');
+  print(TimeOfDay.now());
+
+  try {
+    final NotificationService notificationService = NotificationService();
+
+    await notificationService.initializeNotifications();
+    await notificationService.scheduleRandomDailyNotification();
+  } catch (e) {
+    print("Error during notification initialization: $e");
+  }
+
   runApp(const MyApp());
 }
 
@@ -51,7 +71,8 @@ class MyApp extends StatelessWidget {
             }
 
             if (snapshot.hasData) {
-              return const Home();
+              return ProfilePage(
+                  userId: FirebaseAuth.instance.currentUser!.uid);
             }
 
             return const AuthScreen();

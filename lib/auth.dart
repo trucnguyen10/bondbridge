@@ -3,9 +3,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'widget/user_image_picker.dart'; // Ensure this path is correct
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'widget/user_image_picker_mobile.dart'
+    if (dart.library.html) 'widget/user_image_picker_web.dart';
 
 final FirebaseAuth _firebase = FirebaseAuth.instance;
 
@@ -23,14 +24,14 @@ class _AuthScreenState extends State<AuthScreen> {
   var _enteredName = ''; // New field for name
   var _enteredUsername = ''; // New field for username
   var _isLogin = true;
-  File? _selectedImage;
   dynamic _pickedImage; // Can be File (mobile) or Uint8List (web)
 
   void _submit() async {
     final isValid = _form.currentState!.validate();
 
     FocusScope.of(context).unfocus(); // Close the keyboard
-
+    print('submitting');
+    print(_pickedImage);
     if (!isValid || (!_isLogin && _pickedImage == null)) {
       if (!_isLogin && _pickedImage == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -85,6 +86,7 @@ class _AuthScreenState extends State<AuthScreen> {
           print(_enteredUsername);
           print(_enteredEmail);
           print(_enteredName);
+          print(imageUrl);
           await FirebaseFirestore.instance
               .collection('userstorage')
               .doc(userCredential.user!.uid)
@@ -107,7 +109,7 @@ class _AuthScreenState extends State<AuthScreen> {
         setState(() {
           _enteredEmail = '';
           _enteredPassword = '';
-          _selectedImage = null;
+          _pickedImage = null;
           _isLogin = true; // Switch back to login mode after sign up
         });
       }
@@ -151,7 +153,9 @@ class _AuthScreenState extends State<AuthScreen> {
                         if (!_isLogin)
                           UserImagePicker(
                             onPickImage: (pickedImage) {
-                              _pickedImage = pickedImage;
+                              print('Picked image: $pickedImage');
+                              _pickedImage =
+                                  pickedImage; // Check this assignment
                             },
                           ),
                         if (!_isLogin)

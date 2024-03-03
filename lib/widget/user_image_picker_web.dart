@@ -20,46 +20,29 @@ class _UserImagePickerState extends State<UserImagePicker> {
   Uint8List? _pickedImageBytes;
 
   void _pickImage() async {
-    if (kIsWeb) {
-      // Web-specific logic
-      html.FileUploadInputElement uploadInput = html.FileUploadInputElement()
-        ..accept = 'image/*';
-      uploadInput.accept = 'image/*';
-      uploadInput.click();
-      uploadInput.onChange.listen((e) {
-        final file = uploadInput.files!.first;
-        final reader = html.FileReader();
-        reader.readAsArrayBuffer(file);
-        reader.onLoadEnd.listen((e) {
-          setState(() {
-            _pickedImageBytes = reader.result as Uint8List;
-          });
-          widget.onPickImage(_pickedImageBytes);
-        });
-      });
-    } else {
-      // Mobile image picking logic
-      final picker = ImagePicker();
-      final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-      if (pickedFile != null) {
+    // Web-specific logic
+    html.FileUploadInputElement uploadInput = html.FileUploadInputElement()
+      ..accept = 'image/*';
+    uploadInput.accept = 'image/*';
+    uploadInput.click();
+    uploadInput.onChange.listen((e) {
+      final file = uploadInput.files!.first;
+      final reader = html.FileReader();
+      reader.readAsArrayBuffer(file);
+      reader.onLoadEnd.listen((e) {
         setState(() {
-          _pickedImageFile = File(pickedFile.path);
+          _pickedImageBytes = reader.result as Uint8List;
         });
-      }
-    }
+        widget.onPickImage(_pickedImageBytes);
+      });
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     ImageProvider? imageProvider;
-    if (kIsWeb) {
-      if (_pickedImageBytes != null) {
-        imageProvider = MemoryImage(_pickedImageBytes!);
-      }
-    } else {
-      if (_pickedImageFile != null) {
-        imageProvider = FileImage(_pickedImageFile!);
-      }
+    if (_pickedImageBytes != null) {
+      imageProvider = MemoryImage(_pickedImageBytes!);
     }
 
     return Column(
