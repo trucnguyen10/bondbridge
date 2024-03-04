@@ -7,6 +7,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'widget/user_image_picker_mobile.dart'
     if (dart.library.html) 'widget/user_image_picker_web.dart';
+import 'profile.dart';
 
 final FirebaseAuth _firebase = FirebaseAuth.instance;
 
@@ -47,10 +48,27 @@ class _AuthScreenState extends State<AuthScreen> {
     try {
       UserCredential userCredential;
       if (_isLogin) {
+        print('logging in');
         userCredential = await _firebase.signInWithEmailAndPassword(
           email: _enteredEmail,
           password: _enteredPassword,
         );
+        print('userCredential');
+        print(userCredential);
+        print('logged in');
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance
+            .collection('userstorage')
+            .doc(userCredential.user!.uid)
+            .get();
+
+        print('userDoc');
+        print(userDoc);
+        print(userDoc.data());
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+              builder: (_) => ProfilePage(userId: userCredential.user!.uid)),
+        );
+
         // Handle successful login, e.g., navigate to another screen
       } else {
         print('creating user');
@@ -80,32 +98,39 @@ class _AuthScreenState extends State<AuthScreen> {
 
         // Store username and image URL in Firestore
 
-        try {
-          print('uploading to firestore');
-          print(userCredential.user!.uid);
-          print(_enteredUsername);
-          print(_enteredEmail);
-          print(_enteredName);
-          print(imageUrl);
-          await FirebaseFirestore.instance
-              .collection('userstorage')
-              .doc(userCredential.user!.uid)
-              .set({
-            'username': _enteredUsername,
-            'email': _enteredEmail,
-            'name': _enteredName,
-            'image_url': imageUrl,
-          });
-          print('uploaded to firestore');
-        } catch (error) {
-          print('Error: $error');
-        }
+        await FirebaseFirestore.instance
+            .collection('userstorage')
+            .doc(userCredential.user!.uid)
+            .set({
+          'username': _enteredUsername,
+          'email': _enteredEmail,
+          'name': _enteredName,
+          'image_url': imageUrl, // Ensure imageUrl is handled for null case
+        });
+
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance
+            .collection('userstorage')
+            .doc(userCredential.user!.uid)
+            .get();
+
+        print('userDoc');
+        print(userDoc);
+        print(userDoc.data());
+
+        print('User data uploaded to Firestore');
+
+        // Navigate to ProfilePage after ensuring Firestore operation is complete
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+              builder: (_) => ProfilePage(userId: userCredential.user!.uid)),
+        );
 
         // Store additional user information (e.g., name, username) in Firebase
         // This can be in FirebaseAuth profile or in a Firestore document
 
         // Clear form data and reset state
-        _form.currentState!.reset();
+        // _form.currentState!.reset();
+
         setState(() {
           _enteredEmail = '';
           _enteredPassword = '';

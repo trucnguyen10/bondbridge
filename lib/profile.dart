@@ -23,12 +23,6 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   UserModel? _userModel;
 
-  @override
-  void initState() {
-    super.initState();
-    _fetchUserData();
-  }
-
   Future<void> _fetchUserData() async {
     try {
       DocumentSnapshot userDoc = await FirebaseFirestore.instance
@@ -36,28 +30,31 @@ class _ProfilePageState extends State<ProfilePage> {
           .doc(widget.userId)
           .get();
 
+      print('userDoc');
+      print(userDoc);
+      print(userDoc.data());
+
       if (userDoc.exists) {
         setState(() {
           _userModel =
               UserModel.fromMap(userDoc.data() as Map<String, dynamic>);
         });
+      } else {
+        print('User document does not exist for userId: ${widget.userId}');
+        // Handle the case where the user document does not exist
+        // For example, navigate back or show a message
       }
     } catch (e) {
       print('Error fetching user data: $e');
+      // Handle any other errors
     }
   }
 
-  void _signOut() async {
-    try {
-      await FirebaseAuth.instance.signOut();
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-            builder: (context) => AuthScreen()), // Replace with your login page
-        (Route<dynamic> route) => false,
-      );
-    } catch (e) {
-      print('Sign Out Error: $e');
-    }
+  @override
+  void initState() {
+    print('initState');
+    super.initState();
+    _fetchUserData();
   }
 
   Future<void> _updateProfilePicture(dynamic pickedImage) async {
@@ -93,7 +90,9 @@ class _ProfilePageState extends State<ProfilePage> {
       appBar: AppBar(
         leading: IconButton(
           icon: Icon(Icons.logout, size: 24.0), // Sign-out icon
-          onPressed: _signOut,
+          onPressed: () {
+            FirebaseAuth.instance.signOut();
+          },
         ),
         title: Image.asset('assets/logo.png', height: 100),
         actions: [

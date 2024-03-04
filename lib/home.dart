@@ -1,4 +1,7 @@
+// HomePage.dart
+
 import 'package:flutter/material.dart';
+import 'test_noti.dart';
 
 class HomePage extends StatelessWidget {
   @override
@@ -18,9 +21,9 @@ class HomePage extends StatelessWidget {
             SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
-                // Handle button press, e.g., navigate to another page
+                TestNotificationWidget.testNotification();
               },
-              child: Text('Go to Next Page'),
+              child: Text('Test Notification'),
             ),
           ],
         ),
