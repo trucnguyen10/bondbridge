@@ -101,7 +101,7 @@ class _ProfilePageState extends State<ProfilePage> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => HomePage()),
+                MaterialPageRoute(builder: (context) => GroupsPage()),
               );
             },
           ),
