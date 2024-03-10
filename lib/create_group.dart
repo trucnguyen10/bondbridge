@@ -20,46 +20,50 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
 
   void _createGroup() async {
     final String groupName = groupNameController.text.trim();
-    final String usernameToAdd = addUserController.text.trim();
+    final List<String> usernamesToAdd = addUserController.text
+        .trim()
+        .split(',')
+        .map((username) => username.trim())
+        .where((username) => username.isNotEmpty)
+        .toList();
 
-    if (groupName.isEmpty || usernameToAdd.isEmpty || _pickedImage == null) {
-      print('Group name, user to add, or image is empty');
+    if (groupName.isEmpty || usernamesToAdd.isEmpty || _pickedImage == null) {
+      print('Group name, users to add, or image is empty');
       return;
     }
 
-    try {
-      // Check if user exists
-      final userQuery = await _firestore
+    // Query Firestore for each user
+    List<String> userIds = [];
+    for (String username in usernamesToAdd) {
+      var userQuery = await _firestore
           .collection('userstorage')
-          .where('username', isEqualTo: usernameToAdd)
-          .limit(1)
+          .where('username', isEqualTo: username)
           .get();
 
-      if (userQuery.docs.isEmpty) {
-        print('User does not exist');
-        return;
+      if (userQuery.docs.isNotEmpty) {
+        userIds.add(
+            userQuery.docs.first.id); // Assuming the user ID is the document ID
+      } else {
+        print('User not found: $username');
+        // You might want to notify the user that some usernames were not found
       }
+    }
 
-      // Create the group first without the photoUrl
+    if (userIds.isEmpty) {
+      print('No valid users found');
+      return;
+    }
+
+    // Continue with group creation
+    try {
       DocumentReference groupRef = await _firestore.collection('groups').add({
         'name': groupName,
-        'members': [usernameToAdd], // Array of usernames or user IDs
+        'members': userIds,
         'photoUrl': '', // Placeholder, will be updated later
       });
 
-      // Upload image to Firebase Storage
-      String filePath = 'group_images/${groupRef.id}.jpg';
-      Reference storageRef = FirebaseStorage.instance.ref().child(filePath);
-      String imageUrl;
-      if (kIsWeb) {
-        await storageRef.putData(_pickedImage as Uint8List);
-      } else {
-        await storageRef.putFile(_pickedImage as File);
-      }
-      imageUrl = await storageRef.getDownloadURL();
-
-      // Update group with the image URL
-      await groupRef.update({'photoUrl': imageUrl});
+      // Upload image and update group with the URL
+      await _uploadGroupImageAndUpdate(groupRef);
 
       print('Group created with ID: ${groupRef.id}');
       Navigator.pop(context); // Go back after creating the group
@@ -68,22 +72,33 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
     }
   }
 
+  Future<void> _uploadGroupImageAndUpdate(DocumentReference groupRef) async {
+    String filePath = 'group_images/${groupRef.id}.jpg';
+    Reference storageRef = FirebaseStorage.instance.ref().child(filePath);
+    String imageUrl;
+
+    if (kIsWeb) {
+      await storageRef.putData(_pickedImage as Uint8List);
+    } else {
+      await storageRef.putFile(_pickedImage as File);
+    }
+
+    imageUrl = await storageRef.getDownloadURL();
+    await groupRef.update({'photoUrl': imageUrl});
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Center(
-          child: Center(
-            child: Image.asset('assets/logo.png', height: 100),
-          ),
-        ),
+        title: Text('Create Group'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
+          children: [
             // Group Image Picker
             UserImagePicker(
               onPickImage: (pickedImage) {
@@ -93,7 +108,6 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
               },
             ),
             SizedBox(height: 20),
-
             // Group Name Input Field
             TextField(
               controller: groupNameController,
@@ -103,21 +117,19 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
               ),
             ),
             SizedBox(height: 20),
-
             // Add User Text Field
             TextField(
               controller: addUserController,
               decoration: InputDecoration(
-                labelText: 'Add User',
+                labelText: 'Add Users (comma-separated)',
                 border: OutlineInputBorder(),
               ),
             ),
             SizedBox(height: 20),
-
             // Create Group Button
             ElevatedButton(
-              child: Text('Create Group'),
               onPressed: _createGroup,
+              child: Text('Create Group'),
             ),
           ],
         ),
