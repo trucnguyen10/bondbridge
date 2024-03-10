@@ -1,3 +1,4 @@
+import 'package:bondbridge/group_edit_page.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -176,10 +177,15 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
       _isMenuOpen = false;
     });
 
-    if (choice == 'Add People') {
+    if (choice == 'Edit Group') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => GroupEditPage(groupId: widget.groupId),
+        ),
+      );
+    } else if (choice == 'Add People') {
       _showAddPeopleModal();
-    } else {
-      // Handle other choices here
-    }
+    } // Handle other choices here
   }
 }
