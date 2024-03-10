@@ -54,6 +54,7 @@ class _GroupsPageState extends State<GroupsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Color(0xFFFFF7F1),
       appBar: AppBar(
         title: Center(
           child: Image.asset('assets/logo.png', height: 100),

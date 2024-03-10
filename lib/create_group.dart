@@ -126,6 +126,18 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
             ),
             SizedBox(height: 20),
             ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Color(0xffe78895), // Background color
+                foregroundColor: Colors.white, // Text color
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18.0),
+                ),
+                padding: EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                textStyle: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               onPressed: _createGroup,
               child: Text('Create Group'),
             ),
