@@ -154,7 +154,7 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
               });
             },
             itemBuilder: (BuildContext context) {
-              return {'Add People', 'Remove People', 'Edit Group Info'}
+              return {'Add People', 'Remove People', 'Edit Group'}
                   .map((String choice) {
                 return PopupMenuItem<String>(
                   value: choice,
