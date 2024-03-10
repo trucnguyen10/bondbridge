@@ -12,67 +12,174 @@ class GroupDetailsPage extends StatefulWidget {
 
 class _GroupDetailsPageState extends State<GroupDetailsPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  bool _isMenuOpen = false;
+  String _lastSearchQuery = ''; // Add this to store the last search query
+  List<String> _searchResults = [];
+  List<String> _currentGroupMembers = [];
+  Set<String> _addedInSession = Set();
 
-  Future<Map<String, dynamic>?> _fetchGroupData() async {
+  Future<void> _fetchGroupData() async {
     try {
       DocumentSnapshot groupDoc =
           await _firestore.collection('groups').doc(widget.groupId).get();
       if (groupDoc.exists) {
-        return groupDoc.data() as Map<String, dynamic>?;
+        Map<String, dynamic>? data = groupDoc.data() as Map<String, dynamic>?;
+        setState(() {
+          _currentGroupMembers = List<String>.from(data?['members'] ?? []);
+        });
       } else {
         print("Group not found");
-        return null; // Or handle this case appropriately
       }
     } catch (e) {
       print("Error fetching group: $e");
-      return null; // Or handle the error appropriately
     }
+  }
+
+  Future<List<String>> _searchPeople(String query) async {
+    QuerySnapshot snapshot = await _firestore
+        .collection('userstorage')
+        .where('username', isGreaterThanOrEqualTo: query)
+        .get();
+
+    return snapshot.docs
+        .map((doc) => doc['username'].toString())
+        .where((username) => !_currentGroupMembers.contains(username))
+        .toList();
+  }
+
+  void _addPersonToGroup(String personName) async {
+    if (!_currentGroupMembers.contains(personName)) {
+      await _firestore.collection('groups').doc(widget.groupId).update({
+        'members': FieldValue.arrayUnion([personName])
+      }).then((_) {
+        setState(() {
+          // Add to current members
+          _currentGroupMembers.add(personName);
+          // Remove the person from the search results list
+          _searchResults.remove(personName);
+        });
+        print("Person successfully added to the group");
+      }).catchError((error) {
+        print("Error updating group members: $error");
+      });
+    }
+    setState(() {});
+  }
+
+  void _showAddPeopleModal() {
+    // Ensure group data is loaded before allowing searches
+    if (_currentGroupMembers.isEmpty) {
+      return; // Optionally, show a loading indicator or a message
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (BuildContext context) {
+        return Padding(
+          padding: MediaQuery.of(context).viewInsets,
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  TextField(
+                    decoration: InputDecoration(
+                      labelText: 'Search People',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (value) async {
+                      _lastSearchQuery = value; // Store the last search query
+                      if (value.isNotEmpty) {
+                        List<String> results = await _searchPeople(value);
+                        setState(() {
+                          _searchResults = results;
+                        });
+                      }
+                    },
+                  ),
+                  SizedBox(height: 20),
+                  ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: _searchResults.length,
+                    itemBuilder: (context, index) {
+                      String personName = _searchResults[index];
+                      return ListTile(
+                        title: Text(personName),
+                        trailing: IconButton(
+                          icon: Icon(_currentGroupMembers.contains(personName)
+                              ? Icons.check
+                              : Icons.add),
+                          onPressed: _currentGroupMembers.contains(personName)
+                              ? null
+                              : () => _addPersonToGroup(personName),
+                        ),
+                      );
+                    },
+                  )
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchGroupData();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: FutureBuilder<Map<String, dynamic>?>(
-          future: _fetchGroupData(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Text("Loading...");
-            }
-
-            if (snapshot.hasError) {
-              return Text("Error");
-            }
-
-            if (snapshot.hasData && snapshot.data != null) {
-              return Text(snapshot.data!['name']);
-            }
-
-            return Text("Group Details");
-          },
-        ),
+        title: Text("Group Details"),
+        actions: <Widget>[
+          PopupMenuButton<String>(
+            icon: Icon(_isMenuOpen ? Icons.close : Icons.menu),
+            onSelected: _selectMenuOption,
+            onCanceled: () {
+              setState(() {
+                _isMenuOpen = false;
+              });
+            },
+            onOpened: () {
+              setState(() {
+                _isMenuOpen = true;
+              });
+            },
+            itemBuilder: (BuildContext context) {
+              return {'Add People', 'Remove People', 'Edit Group Info'}
+                  .map((String choice) {
+                return PopupMenuItem<String>(
+                  value: choice,
+                  child: Text(choice),
+                );
+              }).toList();
+            },
+          ),
+        ],
       ),
-      body: FutureBuilder<Map<String, dynamic>?>(
-        future: _fetchGroupData(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
-          }
-
-          if (snapshot.hasError) {
-            return Center(child: Text("Error loading group details"));
-          }
-
-          if (snapshot.hasData && snapshot.data != null) {
-            Map<String, dynamic> groupData = snapshot.data!;
-            return Center(
-                child: Text("Group Details for ${groupData['name']}"));
-            // You can add more UI elements here based on groupData
-          }
-
-          return Center(child: Text("Group not found"));
-        },
+      body: Center(
+        child: Text("Group Details"),
       ),
     );
+  }
+
+  void _selectMenuOption(String choice) {
+    setState(() {
+      _isMenuOpen = false;
+    });
+
+    if (choice == 'Add People') {
+      _showAddPeopleModal();
+    } else {
+      // Handle other choices here
+    }
   }
 }
