@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../widget/user_image_picker_mobile.dart'
     if (dart.library.html) 'widget/user_image_picker_web.dart';
@@ -16,10 +17,12 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
   final TextEditingController groupNameController = TextEditingController();
   final TextEditingController addUserController = TextEditingController();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
   dynamic _pickedImage; // Can be File (mobile) or Uint8List (web)
 
   void _createGroup() async {
     final String groupName = groupNameController.text.trim();
+    final String currentUserId = _auth.currentUser?.uid ?? '';
     final List<String> usernamesToAdd = addUserController.text
         .trim()
         .split(',')
@@ -27,44 +30,33 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
         .where((username) => username.isNotEmpty)
         .toList();
 
-    if (groupName.isEmpty || usernamesToAdd.isEmpty || _pickedImage == null) {
-      print('Group name, users to add, or image is empty');
+    if (groupName.isEmpty || _pickedImage == null || currentUserId.isEmpty) {
+      print('Group name or image is empty, or user is not logged in');
       return;
     }
 
-    // Query Firestore for each user
-    List<String> userIds = [];
-    for (String username in usernamesToAdd) {
-      var userQuery = await _firestore
-          .collection('userstorage')
-          .where('username', isEqualTo: username)
-          .get();
-
-      if (userQuery.docs.isNotEmpty) {
-        userIds.add(
-            userQuery.docs.first.id); // Assuming the user ID is the document ID
-      } else {
-        print('User not found: $username');
-        // You might want to notify the user that some usernames were not found
-      }
-    }
-
-    if (userIds.isEmpty) {
-      print('No valid users found');
-      return;
-    }
-
-    // Continue with group creation
     try {
+      List<String> userIds = [currentUserId]; // Include the group creator
+      for (String username in usernamesToAdd) {
+        var userQuery = await _firestore
+            .collection('userstorage')
+            .where('username', isEqualTo: username)
+            .get();
+
+        if (userQuery.docs.isNotEmpty) {
+          userIds.add(userQuery.docs.first.id);
+        } else {
+          print('User not found: $username');
+        }
+      }
+
       DocumentReference groupRef = await _firestore.collection('groups').add({
         'name': groupName,
         'members': userIds,
         'photoUrl': '', // Placeholder, will be updated later
       });
 
-      // Upload image and update group with the URL
       await _uploadGroupImageAndUpdate(groupRef);
-
       print('Group created with ID: ${groupRef.id}');
       Navigator.pop(context); // Go back after creating the group
     } catch (e) {
@@ -82,7 +74,6 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
     } else {
       await storageRef.putFile(_pickedImage as File);
     }
-
     imageUrl = await storageRef.getDownloadURL();
     await groupRef.update({'photoUrl': imageUrl});
   }
@@ -91,7 +82,18 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Create Group'),
+        title: Center(child: Image.asset('assets/logo.png', height: 100)),
+        actions: <Widget>[
+          IconButton(
+            icon: Icon(Icons.home, size: 40.0),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => CreateGroupScreen()),
+              );
+            },
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -99,7 +101,6 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Group Image Picker
             UserImagePicker(
               onPickImage: (pickedImage) {
                 setState(() {
@@ -108,7 +109,6 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
               },
             ),
             SizedBox(height: 20),
-            // Group Name Input Field
             TextField(
               controller: groupNameController,
               decoration: InputDecoration(
@@ -117,7 +117,6 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
               ),
             ),
             SizedBox(height: 20),
-            // Add User Text Field
             TextField(
               controller: addUserController,
               decoration: InputDecoration(
@@ -126,7 +125,6 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
               ),
             ),
             SizedBox(height: 20),
-            // Create Group Button
             ElevatedButton(
               onPressed: _createGroup,
               child: Text('Create Group'),

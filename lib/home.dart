@@ -2,6 +2,7 @@ import 'package:bondbridge/create_group.dart';
 import 'package:bondbridge/group_detail.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class GroupsPage extends StatefulWidget {
   const GroupsPage({Key? key}) : super(key: key);
@@ -12,27 +13,27 @@ class GroupsPage extends StatefulWidget {
 
 class _GroupsPageState extends State<GroupsPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
   final TextEditingController _searchController = TextEditingController();
   String _searchText = '';
 
   Stream<QuerySnapshot> _groupsStream() {
-    if (_searchText.isEmpty) {
-      // Return all groups if no search text is provided
-      return _firestore.collection('groups').snapshots();
-    }
+    String userId = _auth.currentUser?.uid ?? '';
 
-    String upperBound = '';
+    var query =
+        _firestore.collection('groups').where('members', arrayContains: userId);
+
     if (_searchText.isNotEmpty) {
-      upperBound = _searchText.substring(0, _searchText.length - 1) +
+      String upperBound = _searchText.substring(0, _searchText.length - 1) +
           String.fromCharCode(
               _searchText.codeUnitAt(_searchText.length - 1) + 1);
+
+      query = query
+          .where('name', isGreaterThanOrEqualTo: _searchText)
+          .where('name', isLessThan: upperBound);
     }
 
-    return _firestore
-        .collection('groups')
-        .where('name', isGreaterThanOrEqualTo: _searchText)
-        .where('name', isLessThan: upperBound)
-        .snapshots();
+    return query.snapshots();
   }
 
   void _navigateToCreateGroup() {
@@ -74,14 +75,13 @@ class _GroupsPageState extends State<GroupsPage> {
               decoration: InputDecoration(
                 prefixIcon: Icon(Icons.search),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(30), // Circular border
-                  borderSide: BorderSide.none, // Removes the underline
+                  borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide.none,
                 ),
-                fillColor:
-                    Colors.grey[200], // Background color of the search bar
-                filled: true, // Enable the fillColor
-                contentPadding: EdgeInsets.symmetric(
-                    vertical: 0, horizontal: 20), // Adjust padding
+                fillColor: Colors.grey[200],
+                filled: true,
+                contentPadding:
+                    EdgeInsets.symmetric(vertical: 0, horizontal: 20),
               ),
               onChanged: (value) {
                 setState(() {
