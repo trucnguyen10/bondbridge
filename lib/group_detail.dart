@@ -1,6 +1,8 @@
-import 'package:bondbridge/group_edit_page.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:bondbridge/group_edit_page.dart'; // Ensure this file exists
+import 'package:bondbridge/add_member.dart'; // Ensure this file exists
+import 'package:bondbridge/remove_member.dart'; // Ensure this file exists
 
 class GroupDetailsPage extends StatefulWidget {
   final String groupId;
@@ -14,10 +16,17 @@ class GroupDetailsPage extends StatefulWidget {
 class _GroupDetailsPageState extends State<GroupDetailsPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   bool _isMenuOpen = false;
-  String _lastSearchQuery = ''; // Add this to store the last search query
-  List<String> _searchResults = [];
+  Map<String, String> _usernameToIdMap = {};
+  String _lastSearchQuery = '';
+  List<Map<String, String>> _searchResults = []; // Changed to list of maps
   List<String> _currentGroupMembers = [];
-  Set<String> _addedInSession = Set();
+  TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchGroupData();
+  }
 
   Future<void> _fetchGroupData() async {
     try {
@@ -36,110 +45,83 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
     }
   }
 
-  Future<List<String>> _searchPeople(String query) async {
-    QuerySnapshot snapshot = await _firestore
-        .collection('userstorage')
-        .where('username', isGreaterThanOrEqualTo: query)
-        .get();
-
-    return snapshot.docs
-        .map((doc) => doc['username'].toString())
-        .where((username) => !_currentGroupMembers.contains(username))
-        .toList();
+  void _updateSearchResults(String userId) {
+    setState(() {
+      _currentGroupMembers.add(userId);
+      _searchResults.removeWhere((result) => result['userId'] == userId);
+    });
   }
 
-  void _addPersonToGroup(String personName) async {
-    if (!_currentGroupMembers.contains(personName)) {
+  Future<void> _searchPeople(String query) async {
+    if (query.isEmpty) {
+      setState(() => _searchResults.clear());
+      return;
+    }
+
+    String lowerBound = query.toLowerCase();
+    String upperBound = lowerBound.substring(0, lowerBound.length - 1) +
+        String.fromCharCode(lowerBound.codeUnitAt(lowerBound.length - 1) + 1);
+
+    QuerySnapshot snapshot = await _firestore
+        .collection('userstorage')
+        .where('username', isGreaterThanOrEqualTo: lowerBound)
+        .where('username', isLessThan: upperBound)
+        .get();
+
+    var searchResults = snapshot.docs.map((doc) {
+      return {'username': doc['username'].toString(), 'userId': doc.id};
+    }).toList();
+
+    print(searchResults);
+
+    print(_currentGroupMembers);
+
+    setState(() {
+      _searchResults = searchResults
+          .where((result) => !_currentGroupMembers.contains(result['userId']))
+          .toList();
+    });
+  }
+
+  void _addPersonToGroup(String userId) async {
+    if (!_currentGroupMembers.contains(userId)) {
       await _firestore.collection('groups').doc(widget.groupId).update({
-        'members': FieldValue.arrayUnion([personName])
+        'members': FieldValue.arrayUnion([userId])
       }).then((_) {
         setState(() {
-          // Add to current members
-          _currentGroupMembers.add(personName);
-          // Remove the person from the search results list
-          _searchResults.remove(personName);
+          _currentGroupMembers.add(userId);
+          _searchResults.removeWhere((result) => result['userId'] == userId);
+          print(_searchResults);
         });
-        print("Person successfully added to the group");
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text("User added to the group")));
       }).catchError((error) {
         print("Error updating group members: $error");
       });
     }
-    setState(() {});
   }
 
   void _showAddPeopleModal() {
-    // Ensure group data is loaded before allowing searches
-    if (_currentGroupMembers.isEmpty) {
-      return; // Optionally, show a loading indicator or a message
-    }
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       builder: (BuildContext context) {
-        return Padding(
-          padding: MediaQuery.of(context).viewInsets,
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  TextField(
-                    decoration: InputDecoration(
-                      labelText: 'Search People',
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(),
-                    ),
-                    onChanged: (value) async {
-                      _lastSearchQuery = value; // Store the last search query
-                      if (value.isNotEmpty) {
-                        List<String> results = await _searchPeople(value);
-                        setState(() {
-                          _searchResults = results;
-                        });
-                      }
-                    },
-                  ),
-                  SizedBox(height: 20),
-                  ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: _searchResults.length,
-                    itemBuilder: (context, index) {
-                      String personName = _searchResults[index];
-                      return ListTile(
-                        title: Text(personName),
-                        trailing: IconButton(
-                          icon: Icon(_currentGroupMembers.contains(personName)
-                              ? Icons.check
-                              : Icons.add),
-                          onPressed: _currentGroupMembers.contains(personName)
-                              ? null
-                              : () => _addPersonToGroup(personName),
-                        ),
-                      );
-                    },
-                  )
-                ],
-              ),
-            ),
-          ),
+        return AddMemberDialog(
+          groupId: widget.groupId,
+          onMemberAdded: _updateSearchResults,
         );
       },
     );
   }
 
   @override
-  void initState() {
-    super.initState();
-    _fetchGroupData();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Color(0xFFFFF7F1),
       appBar: AppBar(
-        title: Text("Group Details"),
+        title: Center(
+          child: Image.asset('assets/logo.png', height: 100),
+        ),
         actions: <Widget>[
           PopupMenuButton<String>(
             icon: Icon(_isMenuOpen ? Icons.close : Icons.menu),
@@ -186,6 +168,19 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
       );
     } else if (choice == 'Add People') {
       _showAddPeopleModal();
-    } // Handle other choices here
+    } else if (choice == 'Remove People') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => RemoveMember(groupId: widget.groupId),
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose(); // Dispose the controller
+    super.dispose();
   }
 }
