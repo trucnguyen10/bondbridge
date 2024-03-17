@@ -1,5 +1,5 @@
 
-BondBridge Project Description - README
+##BondBridge Project Description - README
 
 **Overview**
 BondBridge is a cutting-edge Android mobile application, meticulously crafted using the Flutter framework. It is designed with the primary goal of fortifying long-distance relationships among friends, family, and acquaintances. This application uniquely blends the simplicity of group-based photo sharing with the engaging twist of daily prompts, enabling users to share snapshots of their daily lives within their personal circles.
