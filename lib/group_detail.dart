@@ -59,24 +59,30 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
   }
 
   Future<void> _uploadPhoto() async {
-    // Use image picker to select the photo
-    final XFile? pickedFile =
-        await _picker.pickImage(source: ImageSource.gallery);
+    try {
+      final XFile? pickedFile =
+          await _picker.pickImage(source: ImageSource.gallery);
 
-    if (pickedFile != null) {
-      // Upload the file to Firebase Storage
-      String fileName =
-          'group_photos/${widget.groupId}/${DateTime.now().millisecondsSinceEpoch}_${pickedFile.name}';
-      Reference storageRef = FirebaseStorage.instance.ref().child(fileName);
-      await storageRef.putFile(File(pickedFile.path));
+      if (pickedFile != null) {
+        String userId = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
+        String fileName =
+            'group_photos/${widget.groupId}/${DateTime.now().millisecondsSinceEpoch}_${pickedFile.name}';
+        Reference storageRef = FirebaseStorage.instance.ref().child(fileName);
 
-      // Get the URL of the uploaded file
-      String photoUrl = await storageRef.getDownloadURL();
+        await storageRef.putFile(File(pickedFile.path));
+        String photoUrl = await storageRef.getDownloadURL();
 
-      // Store the URL in Firestore under the group's document
-      await _firestore.collection('groups').doc(widget.groupId).update({
-        'photoUrls': FieldValue.arrayUnion([photoUrl])
-      });
+        await _firestore.collection('groups').doc(widget.groupId).update({
+          'photos': FieldValue.arrayUnion([
+            {'url': photoUrl, 'userId': userId}
+          ])
+        });
+        print('Photo uploaded successfully: $photoUrl');
+      } else {
+        print('No photo selected');
+      }
+    } catch (e) {
+      print('Error uploading photo: $e');
     }
   }
 
@@ -90,32 +96,61 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
 
         if (snapshot.hasData && snapshot.data!.data() != null) {
           var groupData = snapshot.data!.data() as Map<String, dynamic>;
-          List<dynamic> photoUrls = groupData['photoUrls'] ?? [];
+          List<dynamic> photos = groupData['photos'] ?? [];
 
-          return GridView.builder(
-            shrinkWrap: true,
-            physics: NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 8, // Spacing between photos
-              mainAxisSpacing: 8,
+          return Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12),
+            child: GridView.builder(
+              shrinkWrap: true,
+              physics: NeverScrollableScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+              ),
+              itemCount: photos.length,
+              itemBuilder: (context, index) {
+                var photoInfo = photos[index];
+                return Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Color(0xFFAACB73), width: 1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Stack(
+                      children: [
+                        Image.network(photoInfo['url'], fit: BoxFit.cover),
+                        Positioned(
+                          right: 4, // Position from the right
+                          bottom: 4, // Position from the bottom
+                          child: FutureBuilder<DocumentSnapshot>(
+                            future: _firestore
+                                .collection('userstorage')
+                                .doc(photoInfo['userId'])
+                                .get(),
+                            builder: (context, userSnapshot) {
+                              if (userSnapshot.connectionState ==
+                                      ConnectionState.done &&
+                                  userSnapshot.data != null) {
+                                var userData = userSnapshot.data!.data()
+                                    as Map<String, dynamic>;
+                                String userImageUrl =
+                                    userData['image_url'] ?? '';
+                                return CircleAvatar(
+                                  backgroundImage: NetworkImage(userImageUrl),
+                                );
+                              }
+                              return Container(); // Placeholder for user avatar
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
-            itemCount: photoUrls.length,
-            itemBuilder: (context, index) {
-              return Container(
-                decoration: BoxDecoration(
-                  border: Border.all(
-                      color: Color(0xFFAACB73), width: 5), // Border color
-                  borderRadius:
-                      BorderRadius.circular(12), // Circular border radius
-                ),
-                child: ClipRRect(
-                  borderRadius:
-                      BorderRadius.circular(12), // Clip to circular shape
-                  child: Image.network(photoUrls[index], fit: BoxFit.cover),
-                ),
-              );
-            },
           );
         }
 
@@ -249,7 +284,7 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Padding(
-              padding: EdgeInsets.all(35),
+              padding: EdgeInsets.all(8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -267,7 +302,7 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
                     child: Text(
                       promptOfTheDay,
                       style:
-                          GoogleFonts.lato(fontSize: 17, color: Colors.black),
+                          GoogleFonts.lato(fontSize: 14, color: Colors.black),
                     ),
                   ),
                 ],
