@@ -1,19 +1,3 @@
-# bonddridge
-
-A new Flutter project.
-
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
 
 **Project Description for BondBridge Overview
 **BondBridge is a cutting-edge Android mobile application, meticulously crafted using the Flutter framework. It is designed with the primary goal of fortifying long-distance relationships among friends, family, and acquaintances. This application uniquely blends the simplicity of group-based photo sharing with the engaging twist of daily prompts, enabling users to share snapshots of their daily lives within their personal circles.
