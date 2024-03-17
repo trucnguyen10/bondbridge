@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
-import 'user_model.dart';
+import 'models/user_model.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'home.dart';
 import 'dart:typed_data';
