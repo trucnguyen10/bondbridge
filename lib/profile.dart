@@ -10,6 +10,7 @@ import 'dart:io';
 import 'update_profile.dart'; // Ensure this file exists with correct implementation
 import 'package:firebase_auth/firebase_auth.dart';
 import 'auth.dart';
+import 'mood_picker.dart';
 
 class ProfilePage extends StatefulWidget {
   final String userId;
@@ -22,6 +23,21 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   UserModel? _userModel;
+  Mood? _selectedMood;
+  Map<String, Color> moodColors = {
+    'Sad': Color.fromARGB(255, 143, 191, 244),
+    'Inlove': Color.fromARGB(255, 240, 154, 183),
+    'Happy': Color.fromARGB(255, 124, 225, 210),
+    'Sleepy': Color.fromARGB(255, 200, 161, 230),
+    'Surprise': Color.fromARGB(255, 234, 205, 164),
+    // Add more moods and their corresponding colors here
+  };
+
+  // Method to get color based on mood
+  Color _getMoodColor(String moodName) {
+    return moodColors[moodName] ??
+        Color(0xFFFFF7F1); // Default color if mood not found
+  }
 
   Future<void> _fetchUserData() async {
     try {
@@ -57,6 +73,25 @@ class _ProfilePageState extends State<ProfilePage> {
     _fetchUserData();
   }
 
+  void _navigateAndDisplayMoodSelection(BuildContext context) async {
+    final result = await Navigator.push<Mood>(
+      context,
+      MaterialPageRoute(builder: (context) => MoodPickerPage()),
+    );
+
+    if (result != null) {
+      setState(() {
+        _selectedMood = result;
+      });
+
+      // Update the mood in Firestore
+      await FirebaseFirestore.instance
+          .collection('userstorage')
+          .doc(widget.userId)
+          .update({'mood': result.name});
+    }
+  }
+
   Future<void> _updateProfilePicture(dynamic pickedImage) async {
     // Upload the new image and get the URL
     String filePath = 'user_images/${widget.userId}.jpg';
@@ -85,28 +120,27 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    Color backgroundColor = _selectedMood != null
+        ? _getMoodColor(_selectedMood!.name)
+        : Color(0xFFFFF7F1); // Default color if no mood is selected
+
     return Scaffold(
-      backgroundColor: Color(0xFFFFF7F1),
+      backgroundColor: backgroundColor, // Set the dynamic background color
       appBar: AppBar(
         leading: IconButton(
-          icon: Icon(Icons.logout, size: 24.0), // Sign-out icon
-          onPressed: () {
-            FirebaseAuth.instance.signOut();
-          },
+          icon: Icon(Icons.logout),
+          onPressed: () => FirebaseAuth.instance.signOut(),
         ),
         title: Image.asset('assets/logo.png', height: 100),
         actions: [
           IconButton(
-            icon: Icon(Icons.home, size: 40.0),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => GroupsPage()),
-              );
-            },
+            icon: Icon(Icons.home),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => GroupsPage()),
+            ),
           ),
         ],
-        centerTitle: true,
       ),
       body: Center(
         child: _userModel == null
@@ -116,34 +150,45 @@ class _ProfilePageState extends State<ProfilePage> {
                 children: [
                   Text('Name: ${_userModel!.name}',
                       style: GoogleFonts.anton(
-                          fontSize: 30, color: Color(0xffe78895))),
+                          fontSize: 30, color: Color.fromARGB(255, 8, 6, 6))),
                   SizedBox(height: 10),
                   Text('Username: ${_userModel!.username}',
                       style: GoogleFonts.anton(
-                          fontSize: 20, color: Color(0xffBED1CF))),
+                          fontSize: 20, color: Color.fromARGB(255, 9, 13, 13))),
                   SizedBox(height: 20),
                   CircleAvatar(
-                    radius: 60,
-                    backgroundImage: NetworkImage(_userModel!.imageUrl),
-                  ),
+                      radius: 60,
+                      backgroundImage: NetworkImage(_userModel!.imageUrl)),
                   SizedBox(height: 20),
+                  if (_selectedMood != null) // Display the selected mood
+                    Column(
+                      children: [
+                        Image.asset(_selectedMood!.imagePath, height: 50),
+                        Text('Mood: ${_selectedMood!.name}'),
+                      ],
+                    ),
+                  ElevatedButton(
+                    onPressed: () => _navigateAndDisplayMoodSelection(context),
+                    style: ElevatedButton.styleFrom(
+                      primary: Color(0xFFFFD4D4), // Background color
+                      onPrimary: Colors.black, // Text color
+                    ),
+                    child: Text('Set Your Mood'),
+                  ),
                   ElevatedButton(
                     onPressed: () async {
                       final result = await Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) =>
-                              UpdateProfilePage(userId: widget.userId),
-                        ),
+                            builder: (context) =>
+                                UpdateProfilePage(userId: widget.userId)),
                       );
-
-                      // Debugging print statement
-                      print("Update result: $result");
-
-                      if (result == true) {
-                        _fetchUserData();
-                      }
+                      if (result == true) _fetchUserData();
                     },
+                    style: ElevatedButton.styleFrom(
+                      primary: Color(0xFFFFD4D4), // Background color
+                      onPrimary: Colors.black, // Text color
+                    ),
                     child: Text('Edit Profile'),
                   ),
                 ],

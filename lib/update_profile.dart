@@ -8,9 +8,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'home.dart';
 import 'dart:typed_data';
 import 'dart:io'; // Add this for File type
-import 'widget/user_image_picker_mobile.dart'
+import '../widget/user_image_picker_mobile.dart'
     if (dart.library.html) 'widget/user_image_picker_web.dart';
-import 'widget/update.dart';
+import '../widget/update.dart';
 
 class UpdateProfilePage extends StatefulWidget {
   final String userId;

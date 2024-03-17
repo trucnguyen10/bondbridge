@@ -3,6 +3,7 @@ import 'package:bondbridge/group_detail.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class GroupsPage extends StatefulWidget {
   const GroupsPage({Key? key}) : super(key: key);
@@ -19,18 +20,24 @@ class _GroupsPageState extends State<GroupsPage> {
 
   Stream<QuerySnapshot> _groupsStream() {
     String userId = _auth.currentUser?.uid ?? '';
+    print('Current User ID: $userId');
 
     var query =
         _firestore.collection('groups').where('members', arrayContains: userId);
 
     if (_searchText.isNotEmpty) {
+      String lowerBound = _searchText;
       String upperBound = _searchText.substring(0, _searchText.length - 1) +
           String.fromCharCode(
               _searchText.codeUnitAt(_searchText.length - 1) + 1);
 
+      print('Search Text: $_searchText');
+      print('Lower Bound: $lowerBound');
+      print('Upper Bound: $upperBound');
+
       query = query
-          .where('name', isGreaterThanOrEqualTo: _searchText)
-          .where('name', isLessThan: upperBound);
+          .where('name', isGreaterThanOrEqualTo: lowerBound.toLowerCase())
+          .where('name', isLessThan: upperBound.toLowerCase());
     }
 
     return query.snapshots();
@@ -97,6 +104,7 @@ class _GroupsPageState extends State<GroupsPage> {
               builder: (BuildContext context,
                   AsyncSnapshot<QuerySnapshot> snapshot) {
                 if (snapshot.hasError) {
+                  print(snapshot.error);
                   return Text('Something went wrong');
                 }
 
@@ -114,11 +122,11 @@ class _GroupsPageState extends State<GroupsPage> {
                         group['photoUrl'] as String? ?? 'default_image_url';
 
                     return Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8.0),
+                      padding: EdgeInsets.symmetric(vertical: 10.0),
                       child: ListTile(
                         title: Text(groupName,
-                            style: TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.bold)),
+                            style: GoogleFonts.anton(
+                                fontSize: 20, color: Color(0xffe78895))),
                         leading: CircleAvatar(
                             radius: 30,
                             backgroundImage: NetworkImage(groupPhotoUrl)),

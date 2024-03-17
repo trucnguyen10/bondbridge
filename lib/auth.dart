@@ -5,7 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'widget/user_image_picker_mobile.dart'
+import '../widget/user_image_picker_mobile.dart'
     if (dart.library.html) 'widget/user_image_picker_web.dart';
 import 'profile.dart';
 
@@ -53,7 +53,7 @@ class _AuthScreenState extends State<AuthScreen> {
           email: _enteredEmail,
           password: _enteredPassword,
         );
-        
+
         print('userCredential');
         print(userCredential);
         print('logged in');
