@@ -19,19 +19,19 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // tz.initializeTimeZones();
+  tz.initializeTimeZones();
 
-  // print('Timezone initialized: ${(DateTime.now().timeZoneName)}');
-  // print(TimeOfDay.now());
+  print('Timezone initialized: ${(DateTime.now().timeZoneName)}');
+  print(TimeOfDay.now());
 
-  // try {
-  //   final NotificationService notificationService = NotificationService();
+  try {
+    final NotificationService notificationService = NotificationService();
 
-  //   await notificationService.initializeNotifications();
-  //   await notificationService.scheduleRandomDailyNotification();
-  // } catch (e) {
-  //   print("Error during notification initialization: $e");
-  // }
+    await notificationService.initializeNotifications();
+    await notificationService.scheduleRandomDailyNotification();
+  } catch (e) {
+    print("Error during notification initialization: $e");
+  }
 
   runApp(const MyApp());
 }

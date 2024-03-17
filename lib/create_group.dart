@@ -23,6 +23,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
   void _createGroup() async {
     final String groupName = groupNameController.text.trim();
     final String currentUserId = _auth.currentUser?.uid ?? '';
+    print('Current User ID: $currentUserId');
     final List<String> usernamesToAdd = addUserController.text
         .trim()
         .split(',')

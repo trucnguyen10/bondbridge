@@ -47,6 +47,11 @@ class NotificationService {
         notificationList[Random().nextInt(notificationList.length)].data();
     var content = randomNotification['content'];
 
+    // Store the selected prompt in Firestore
+    await FirebaseFirestore.instance
+        .collection('daily_prompt')
+        .doc('latest')
+        .set({'content': content, 'timestamp': DateTime.now()});
     print('Scheduling notification with content: $content');
     print('time' + _nextInstanceOfTwelveFortyPM().toString());
 
@@ -76,7 +81,7 @@ class NotificationService {
     print(nowEst.toString() + " now est");
     // Schedule for 12:40 PM EST
     tz.TZDateTime scheduledDate = tz.TZDateTime(
-        estLocation, nowEst.year, nowEst.month, nowEst.day, 00, 23);
+        estLocation, nowEst.year, nowEst.month, nowEst.day, 8, 38);
     // If the scheduled time is in the past, add one day
     if (scheduledDate.isBefore(nowEst)) {
       scheduledDate = nowEst.add(const Duration(seconds: 10));

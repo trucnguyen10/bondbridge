@@ -11,12 +11,17 @@ class TestNotificationWidget {
         await FirebaseFirestore.instance.collection('notifications').get();
     var notificationList = notifications.docs;
 
-    // Randomly select a notification
     var randomNotification =
         notificationList[Random().nextInt(notificationList.length)].data();
     var content = randomNotification['content'];
 
-    print(content);
+    // Store the selected prompt in Firestore
+    await FirebaseFirestore.instance
+        .collection('dailyPrompts')
+        .doc('current')
+        .set({'prompt': content});
+
+    print('Prompt' + content);
 
     var androidDetails = const AndroidNotificationDetails(
       'test_channel_id',

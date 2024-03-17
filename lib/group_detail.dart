@@ -3,6 +3,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:bondbridge/group_edit_page.dart'; // Ensure this file exists
 import 'package:bondbridge/add_member.dart'; // Ensure this file exists
 import 'package:bondbridge/remove_member.dart'; // Ensure this file exists
+import 'package:image_picker/image_picker.dart';
+import 'dart:math';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'dart:io';
+import 'package:google_fonts/google_fonts.dart';
 
 class GroupDetailsPage extends StatefulWidget {
   final String groupId;
@@ -22,10 +29,99 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
   List<String> _currentGroupMembers = [];
   TextEditingController _searchController = TextEditingController();
 
+  String promptOfTheDay = '';
+  final ImagePicker _picker = ImagePicker();
+
   @override
   void initState() {
     super.initState();
     _fetchGroupData();
+    _fetchPromptOfTheDay();
+  }
+
+  Future<void> _fetchPromptOfTheDay() async {
+    var promptDoc = await FirebaseFirestore.instance
+        .collection('daily_prompt')
+        .doc('latest')
+        .get();
+
+    if (promptDoc.exists) {
+      var promptData = promptDoc.data();
+      var content = promptData?['content'];
+      setState(() {
+        promptOfTheDay = content;
+      });
+    } else {
+      setState(() {
+        promptOfTheDay = 'No prompt for today';
+      });
+    }
+  }
+
+  Future<void> _uploadPhoto() async {
+    // Use image picker to select the photo
+    final XFile? pickedFile =
+        await _picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      // Upload the file to Firebase Storage
+      String fileName =
+          'group_photos/${widget.groupId}/${DateTime.now().millisecondsSinceEpoch}_${pickedFile.name}';
+      Reference storageRef = FirebaseStorage.instance.ref().child(fileName);
+      await storageRef.putFile(File(pickedFile.path));
+
+      // Get the URL of the uploaded file
+      String photoUrl = await storageRef.getDownloadURL();
+
+      // Store the URL in Firestore under the group's document
+      await _firestore.collection('groups').doc(widget.groupId).update({
+        'photoUrls': FieldValue.arrayUnion([photoUrl])
+      });
+    }
+  }
+
+  Widget _buildPhotosGrid() {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: _firestore.collection('groups').doc(widget.groupId).snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return CircularProgressIndicator();
+        }
+
+        if (snapshot.hasData && snapshot.data!.data() != null) {
+          var groupData = snapshot.data!.data() as Map<String, dynamic>;
+          List<dynamic> photoUrls = groupData['photoUrls'] ?? [];
+
+          return GridView.builder(
+            shrinkWrap: true,
+            physics: NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 8, // Spacing between photos
+              mainAxisSpacing: 8,
+            ),
+            itemCount: photoUrls.length,
+            itemBuilder: (context, index) {
+              return Container(
+                decoration: BoxDecoration(
+                  border: Border.all(
+                      color: Color(0xFFAACB73), width: 5), // Border color
+                  borderRadius:
+                      BorderRadius.circular(12), // Circular border radius
+                ),
+                child: ClipRRect(
+                  borderRadius:
+                      BorderRadius.circular(12), // Clip to circular shape
+                  child: Image.network(photoUrls[index], fit: BoxFit.cover),
+                ),
+              );
+            },
+          );
+        }
+
+        return Text('No photos available');
+      },
+    );
   }
 
   Future<void> _fetchGroupData() async {
@@ -117,7 +213,7 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFFFFF7F1),
+      backgroundColor: Color(0xFFFFFFE8), // Change background color
       appBar: AppBar(
         title: Center(
           child: Image.asset('assets/logo.png', height: 100),
@@ -148,8 +244,43 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
           ),
         ],
       ),
-      body: Center(
-        child: Text("Group Details"),
+      body: SingleChildScrollView(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Padding(
+              padding: EdgeInsets.all(35),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Text(
+                      "Today's Prompt:",
+                      style: GoogleFonts.anton(
+                        fontSize: 30,
+                        color: Color.fromARGB(150, 240, 21,
+                            21), // Using hexadecimal code for FFD4D4
+                      ),
+                    ),
+                  ),
+                  Center(
+                    child: Text(
+                      promptOfTheDay,
+                      style:
+                          GoogleFonts.lato(fontSize: 17, color: Colors.black),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: Icon(Icons.add_a_photo),
+              onPressed: _uploadPhoto,
+            ),
+            _buildPhotosGrid(),
+            // Additional content here
+          ],
+        ),
       ),
     );
   }

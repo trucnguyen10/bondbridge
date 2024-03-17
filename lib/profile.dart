@@ -131,7 +131,10 @@ class _ProfilePageState extends State<ProfilePage> {
           icon: Icon(Icons.logout),
           onPressed: () => FirebaseAuth.instance.signOut(),
         ),
-        title: Image.asset('assets/logo.png', height: 100),
+        title: Center(
+          // Wrap the Image with Center widget
+          child: Image.asset('assets/logo.png', height: 100),
+        ),
         actions: [
           IconButton(
             icon: Icon(Icons.home),
